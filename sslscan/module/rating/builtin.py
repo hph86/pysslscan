@@ -83,5 +83,14 @@ class BuiltIn_0_5(BaseRating):
             )
         )
 
+        self.add_rule(
+            RatingRule(
+                "server.security.scsv",
+                rules=[
+                    lambda v, i, kb: 1 if v is True else None
+                ]
+            )
+        )
+
 
 modules.register(BuiltIn_0_5)

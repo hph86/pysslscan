@@ -665,11 +665,11 @@ class BaseScan(BaseModule):
                 record = conn_tls.pop_record()
                 self.parse_tls_server_records_hooks.call(record)
 
+                records.append(record)
                 if isinstance(record, Alert):
                     if record.level == 2:
                         return records
 
-                records.append(record)
                 if stop_condition(record, records):
                     run = False
 

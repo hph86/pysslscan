@@ -426,7 +426,7 @@ class Terminal(BaseReport):
             )
             tmp_value = "-"
             if scsv_supported is None:
-                tmp_value = "unkown"
+                tmp_value = "unknown"
             elif scsv_supported is True:
                 tmp_value = "supported"
             elif scsv_supported is False:

@@ -1,15 +1,12 @@
-from datetime import datetime
-
 from sslscan import modules
 from sslscan.module.scan import BaseScan
 
 import flextls
-from flextls.exception import NotEnoughData
 from flextls.field import CipherSuiteField
 from flextls.protocol.handshake import Handshake, ServerHello
-from flextls.protocol.record import SSLv3Record
 from flextls.protocol.alert import Alert
 import six
+from sslscan.exception import Timeout
 
 if six.PY2:
     import socket
@@ -28,11 +25,10 @@ class ServerSCSV(BaseScan):
         BaseScan.__init__(self, **kwargs)
 
     def _connect_with_scsv(self, protocol_version, cipher_suites):
-        def hook_cipher_suites(record):
-            cipher_suites = flextls.registry.tls.cipher_suites[:]
-            for cipher_suite in cipher_suites:
+        def hook_cipher_suites(record, cipher_suites=None):
+            for i in cipher_suites:
                 cipher = CipherSuiteField()
-                cipher.value = cipher_suite.id
+                cipher.value = i
                 record.payload.cipher_suites.append(cipher)
 
             cipher = CipherSuiteField()
@@ -42,10 +38,31 @@ class ServerSCSV(BaseScan):
             return record
 
         def stop_condition(record, records):
-            return isinstance(record, Handshake) and \
-                   isinstance(record.payload, ServerHello)
+            return (isinstance(record, Handshake) and
+                    isinstance(record.payload, ServerHello))
 
         ver_major, ver_minor = flextls.helper.get_tls_version(protocol_version)
+
+        is_dtls = False
+        if protocol_version & flextls.registry.version.DTLS != 0:
+            is_dtls = True
+
+        if is_dtls:
+            self.build_dtls_client_hello_hooks.connect(
+                hook_cipher_suites,
+                name="cipher_suites",
+                args={
+                    "cipher_suites": cipher_suites
+                }
+            )
+        else:
+            self.build_tls_client_hello_hooks.connect(
+                hook_cipher_suites,
+                name="cipher_suites",
+                args={
+                    "cipher_suites": cipher_suites
+                }
+            )
 
         records = self.connect(
             protocol_version,
@@ -54,17 +71,15 @@ class ServerSCSV(BaseScan):
 
         if records is None:
             return None
-            server_hello = None
 
         for record in records:
             if isinstance(record, Handshake):
                 if isinstance(record.payload, ServerHello):
-                    if record.version.major == ver_major and \
-                            record.version.minor == ver_minor:
+                    if record.payload.version.major == ver_major and \
+                            record.payload.version.minor == ver_minor:
                         return False
-            elif isinstance(record.payload, Alert):
-                if record.payload.level == 2 and \
-                        record.payload.description == 86:
+            elif isinstance(record, Alert):
+                if record.level == 2 and record.description == 86:
                     return True
 
     def run(self):
@@ -87,12 +102,18 @@ class ServerSCSV(BaseScan):
 
                 if scsv_cur_status is None:
                     continue
-                
+
                 if scsv_cur_status is True:
                     kb.set("server.security.scsv", True)
                     break
 
-                if scsv_status is False and  scsv_cur_status is False:
+                # At least two protocol versions must reach a ServerHello in
+                # order to falsify SCSV security. Otherwise, if we
+                # coincidentally use the highest protocol version that the
+                # server supports, the server has to proceed with the
+                # handshake, even if the SCSV suite is present (see RFC 7507,
+                # section 3).
+                if scsv_status is False and scsv_cur_status is False:
                     kb.set("server.security.scsv", False)
                     break
 
