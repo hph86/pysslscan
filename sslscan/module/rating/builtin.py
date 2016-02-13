@@ -75,6 +75,15 @@ class BuiltIn_0_5(BaseRating):
 
         self.add_rule(
             RatingRule(
+                "server.renegotiation.ci_insecure",
+                rules=[
+                    lambda v, i, kb: 6 if v else None,
+                ]
+            )
+        )
+
+        self.add_rule(
+            RatingRule(
                 "server.renegotiation.secure",
                 rules=[
                     lambda v, i, kb: 6 if v == False else None,

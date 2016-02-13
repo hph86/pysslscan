@@ -271,22 +271,10 @@ class Terminal(BaseReport):
         print("")
 
     def _print_host_renegotiation(self, kb):
-        if kb.get("server.renegotiation.support") is None:
+        if kb.get("server.renegotiation.secure") is None:
             return
 
-        reneg_support = kb.get("server.renegotiation.support")
-        rating_renegotiation = self._rating.rate(
-            "server.renegotiation.support",
-            reneg_support
-        )
         print("TLS renegotiation:")
-        print(
-            "  Supported: {1}{0}{2}".format(
-                "yes" if reneg_support else "no",
-                helper.rating2color(self.color, rating_renegotiation),
-                self.color.RESET
-            )
-        )
 
         reneg_secure = kb.get("server.renegotiation.secure")
         rating_renegotiation = self._rating.rate(
@@ -294,12 +282,42 @@ class Terminal(BaseReport):
             reneg_secure
         )
         print(
-            "  Secure: {1}{0}{2}".format(
+            "  Secure renegotiation support: {1}{0}{2}".format(
                 "yes" if reneg_secure else "no",
                 helper.rating2color(self.color, rating_renegotiation),
                 self.color.RESET
             )
         )
+
+        reneg_support = kb.get("server.renegotiation.ci_secure")
+        rating_renegotiation = self._rating.rate(
+            "server.renegotiation.ci_secure",
+            reneg_support
+        )
+        print(
+            "  Client-initiated renegotiation (secure): {1}{0}{2}".format(
+                "yes" if reneg_support else "no",
+                helper.rating2color(self.color, rating_renegotiation),
+                self.color.RESET
+            )
+        )
+
+        reneg_support = kb.get("server.renegotiation.ci_insecure")
+        # Remove check when insecure, client-initiated renegotiations are
+        # checked properly (see server_renegotiation.py).
+        if reneg_support is not None:
+            rating_renegotiation = self._rating.rate(
+                "server.renegotiation.ci_insecure",
+                reneg_support
+            )
+            print(
+                "  Client-initiated renegotiation (insecure): {1}{0}{2}".format(
+                    "yes" if reneg_support else "no",
+                    helper.rating2color(self.color, rating_renegotiation),
+                    self.color.RESET
+                )
+            )
+
         print("")
 
     def _print_server_alpn(self, kb):

@@ -737,16 +737,21 @@ class BaseInfoScan(BaseScan):
 
         return None
 
-    def _connect_openssl(self, protocol_versions=None):
-        if openssl_enabled == False:
+    def _connect_openssl(
+            self,
+            protocol_versions=None,
+            ctx_options=None,
+            methods=None):
+        if not openssl_enabled:
             return None
         from sslscan._helper.openssl import convert_versions2methods
 
         if protocol_versions is None:
             protocol_versions = self._scanner.get_enabled_versions()
 
-        methods = convert_versions2methods(protocol_versions)
-        methods.reverse()
+        if methods is None:
+            methods = convert_versions2methods(protocol_versions)
+            methods.reverse()
 
         for method in methods:
             try:
@@ -756,6 +761,9 @@ class BaseInfoScan(BaseScan):
                 continue
 
             ctx.set_cipher_list("ALL:COMPLEMENT")
+            if ctx_options:
+                for option in ctx_options:
+                    ctx.set_options(option)
             conn = self._scanner.handler.connect()
             conn_ssl = SSL.Connection(ctx, conn._socket)
             conn_ssl.set_tlsext_host_name(
